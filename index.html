@@ -35,7 +35,7 @@
             -webkit-user-select: none;
             -webkit-touch-callout: none;
             touch-action: manipulation; /* Faster touch response */
-            box-sizing: border-box; /* Ensures padding doesn't push out of bounds */
+            box-sizing: border-box;
         }
         .button:active {
             transform: scale(0.95);
@@ -43,17 +43,17 @@
         #yesBtn {
             background-color: #ff1493;
             color: white;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            top: 50% !important; /* Force center */
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important; /* Center alignment */
             z-index: 1;
         }
         #noBtn {
             background-color: #ff69b4;
             color: white;
-            top: 60%; /* Initial offset below and right of center */
-            left: 70%;
-            transform: translate(-50%, -50%);
+            top: 60% !important; /* Initial offset below center */
+            left: 70% !important; /* Offset right */
+            transform: translate(-50%, -50%) !important;
             z-index: 2;
             transition: left 0.3s ease, top 0.3s ease;
             max-width: 40%;
@@ -103,22 +103,58 @@
                 `;
                 document.body.appendChild(conf);
                 // Remove after animation
-                setTimeout(() => conf.remove(), 2000);
+                setTimeout(() => conf && conf.remove(), 2000);
             }
         }
-        // CSS for confetti animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes fall {
-                to { transform: translateY(100vh) rotate(360deg); opacity: 0; }
-            }
-        `;
-        document.head.appendChild(style);
+        // CSS for confetti animation (added to head if not exists)
+        if (!document.querySelector('#confetti-style')) {
+            const style = document.createElement('style');
+            style.id = 'confetti-style';
+            style.textContent = `
+                @keyframes fall {
+                    to { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
 
-        // Get bounds (with safety for pre-render)
+        // Get bounds (safer defaults)
         function getBounds() {
-            const btnWidth = noBtn.offsetWidth || 150; // Default size estimate
+            const btnWidth = noBtn.offsetWidth || 150;
             const btnHeight = noBtn.offsetHeight || 60;
             return {
                 maxX: Math.max(0, window.innerWidth - btnWidth - 20),
-                maxY: Math.max(0, window.innerHeight - btnHeight
+                maxY: Math.max(0, window.innerHeight - btnHeight - 20)
+            };
+        }
+
+        // Dodge function (core functionality restored)
+        function dodge(e) {
+            if (e.type === 'touchend') {
+                e.preventDefault(); // Prevent zoom/scroll on touch
+            }
+            // Update taunt (#1)
+            noBtn.innerHTML = taunts[tauntIndex % taunts.length];
+            tauntIndex = (tauntIndex + 1) % taunts.length;
+
+            // Optional Shake (#2) - Uncomment next 4 lines to enable
+            // noBtn.classList.add('shake');
+            // setTimeout(() => { noBtn.classList.remove('shake'); }, 400);
+
+            // Dodge position (escapes randomly)
+            const { maxX, maxY } = getBounds();
+            const newX = Math.random() * Math.max(1, maxX); // Avoid 0
+            const newY = Math.random() * Math.max(1, maxY);
+            noBtn.style.left = newX + 'px';
+            noBtn.style.top = newY + 'px';
+            noBtn.style.transform = 'translate(-50%, -50%)';
+        }
+
+        // Events: Attach after elements exist (ensures functionality)
+        if (noBtn && yesBtn) {
+            noBtn.addEventListener('touchend', dodge, { passive: false });
+            noBtn.addEventListener('click', dodge);
+        }
+
+        // Yes button
+        function triggerYes() {
