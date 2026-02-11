@@ -17,6 +17,7 @@
             color: #fff;
             text-align: center;
             overflow: hidden; /* Prevents dodging off-screen */
+            touch-action: none; /* Improves touch precision on mobile */
         }
         h1 {
             font-size: 2.5em;
@@ -32,6 +33,8 @@
             transition: transform 0.2s ease;
             position: absolute;
             user-select: none; /* Prevents text selection on mobile */
+            -webkit-user-select: none; /* iOS Safari */
+            -webkit-touch-callout: none; /* iOS no long-press menu */
         }
         .button:active {
             transform: scale(0.95);
@@ -53,20 +56,38 @@
             transform: translate(-50%, -50%);
             z-index: 2;
             transition: left 0.3s ease, top 0.3s ease;
-        }
-        /* Shake Animation for Dodge (#2) */
-        @keyframes shake {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            25% { transform: translate(-5px, 0) scale(1.1); }
-            75% { transform: translate(5px, 0) scale(1.1); }
-        }
-        #noBtn.shake {
-            animation: shake 0.5s ease-in-out;
-        }
-        /* Ensure buttons stay in bounds */
-        #noBtn {
             max-width: 40%;
             min-width: 120px;
+        }
+        /* Shake Animation for Dodge (#2) - Optimized for mobile */
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(-3px, 0) scale(1.05); } /* Softer for mobile */
+            75% { transform: translate(3px, 0) scale(1.05); }
+        }
+        #noBtn.shake {
+            animation: shake 0.4s ease-in-out; /* Shorter duration */
+            will-change: transform; /* Optimize rendering */
+        }
+        /* Fallback confetti styles (if JS fails) */
+        .confetti-fallback {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .confetti-fallback::before {
+            content: '🎉💕🎊';
+            position: absolute;
+            font-size: 2em;
+            animation: fall 1s linear infinite;
+        }
+        @keyframes fall {
+            0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
         }
     </style>
 </head>
@@ -82,6 +103,9 @@
     <script>
         const yesBtn = document.getElementById('yesBtn');
         const noBtn = document.getElementById('noBtn');
+        let noTaps = 0; // For throttling
+        const tapThrottle = 300; // ms between dodges
+        let lastTap = 0;
 
         // Teasing Taunts (#1)
         const taunts = [
@@ -93,22 +117,36 @@
         ];
         let tauntIndex = 0;
 
-        // Dodge Mechanic (with #1 & #2)
+        // Function to get screen bounds (updates on resize)
+        function getBounds() {
+            return {
+                maxX: window.innerWidth - noBtn.offsetWidth - 20,
+                maxY: window.innerHeight - noBtn.offsetHeight - 20
+            };
+        }
+
+        // Dodge Mechanic (with #1 & #2) - Throttled for mobile
         function dodge(e) {
-            e.preventDefault(); // Prevent redirect on mobile taps
+            e.preventDefault();
             e.stopPropagation();
+
+            const now = Date.now();
+            if (now - lastTap < tapThrottle) return; // Throttle rapid taps
+            lastTap = now;
+            noTaps++;
 
             // Update taunt text (#1)
             noBtn.innerHTML = taunts[tauntIndex % taunts.length];
-            tauntIndex++;
+            tauntIndex = (tauntIndex + 1) % taunts.length;
 
             // Shake animation (#2)
             noBtn.classList.add('shake');
-            setTimeout(() => { noBtn.classList.remove('shake'); }, 500);
+            setTimeout(() => { 
+                if (noBtn) noBtn.classList.remove('shake'); 
+            }, 400);
 
             // Random dodge position (keep on screen)
-            const maxX = window.innerWidth - noBtn.offsetWidth - 20;
-            const maxY = window.innerHeight - noBtn.offsetHeight - 20;
+            const { maxX, maxY } = getBounds();
             const newX = Math.random() * maxX;
             const newY = Math.random() * maxY;
             
@@ -117,27 +155,58 @@
             noBtn.style.transform = 'translate(-50%, -50%)';
         }
 
-        // Event listeners for No button (touch + mouse for compatibility)
-        noBtn.addEventListener('click', dodge);
-        noBtn.addEventListener('touchstart', dodge, { passive: false });
-        noBtn.addEventListener('mousedown', dodge);
+        // Unified pointer events for mobile/desktop compatibility
+        noBtn.addEventListener('pointerdown', dodge, { passive: false });
 
         // Yes Button with Confetti (#3)
-        yesBtn.addEventListener('click', () => {
-            // Pink/red confetti burst
-            confetti({
-                particleCount: 100,
-                spread: 70,
-                origin: { y: 0.6 },
-                colors: ['#ff69b4', '#ff1493', '#fff', '#ffb6c1']
-            });
-            // Delay redirect for the show
-            setTimeout(() => { window.location.href = 'success.html'; }, 1000);
+        function triggerYes() {
+            // Check if confetti loaded; fallback to CSS
+            if (typeof confetti !== 'undefined') {
+                confetti({
+                    particleCount: 80, // Lighter for mobile perf
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#ff69b4', '#ff1493', '#fff', '#ffb6c1'],
+                    disableForReducedMotion: true // Respects mobile settings
+                });
+                // Shorter delay on mobile
+                const delay = /Mobi|Android/i.test(navigator.userAgent) ? 500 : 1000;
+                setTimeout(() => { window.location.href = 'success.html'; }, delay);
+            } else {
+                // Fallback: Add CSS confetti overlay
+                const fallback = document.createElement('div');
+                fallback.className = 'confetti-fallback';
+                fallback.style.background = 'transparent';
+                document.body.appendChild(fallback);
+                setTimeout(() => { 
+                    if (fallback) fallback.remove();
+                    window.location.href = 'success.html'; 
+                }, 1000);
+            }
+        }
+
+        yesBtn.addEventListener('click', triggerYes);
+        yesBtn.addEventListener('pointerdown', triggerYes, { passive: false });
+
+        // Handle screen resize (e.g., mobile rotation)
+        window.addEventListener('resize', () => {
+            // Re-center Yes if needed
+            yesBtn.style.left = '50%';
+            yesBtn.style.top = '50%';
+            // Bound No button if it's off-screen
+            const { maxX, maxY } = getBounds();
+            const rect = noBtn.getBoundingClientRect();
+            if (rect.right > window.innerWidth) noBtn.style.left = (maxX / 2) + 'px';
+            if (rect.bottom > window.innerHeight) noBtn.style.top = (maxY / 2) + 'px';
         });
 
-        // Mobile touch for Yes (in case)
-        yesBtn.addEventListener('touchstart', () => {
-            yesBtn.click(); // Trigger the same action
+        // Initial bounds check
+        window.addEventListener('load', () => {
+            const { maxX, maxY } = getBounds();
+            if (noBtn.offsetLeft > maxX || noBtn.offsetTop > maxY) {
+                noBtn.style.left = (maxX * 0.7) + 'px';
+                noBtn.style.top = (maxY * 0.6) + 'px';
+            }
         });
     </script>
 </body>
