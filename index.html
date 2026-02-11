@@ -16,8 +16,7 @@
             background: linear-gradient(135deg, #ff69b4, #ff1493);
             color: #fff;
             text-align: center;
-            overflow: hidden; /* Prevents dodging off-screen */
-            touch-action: none; /* Improves touch precision on mobile */
+            overflow: hidden;
         }
         h1 {
             font-size: 2.5em;
@@ -30,11 +29,13 @@
             border: none;
             border-radius: 50px;
             cursor: pointer;
-            transition: transform 0.2s ease;
+            transition: all 0.2s ease;
             position: absolute;
-            user-select: none; /* Prevents text selection on mobile */
-            -webkit-user-select: none; /* iOS Safari */
-            -webkit-touch-callout: none; /* iOS no long-press menu */
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: manipulation; /* Faster touch response */
+            box-sizing: border-box; /* Ensures padding doesn't push out of bounds */
         }
         .button:active {
             transform: scale(0.95);
@@ -50,8 +51,7 @@
         #noBtn {
             background-color: #ff69b4;
             color: white;
-            position: absolute;
-            top: 60%;
+            top: 60%; /* Initial offset below and right of center */
             left: 70%;
             transform: translate(-50%, -50%);
             z-index: 2;
@@ -59,35 +59,14 @@
             max-width: 40%;
             min-width: 120px;
         }
-        /* Shake Animation for Dodge (#2) - Optimized for mobile */
+        /* Shake Animation (#2) - Uncomment lines in JS to enable */
         @keyframes shake {
             0%, 100% { transform: translate(0, 0) scale(1); }
-            25% { transform: translate(-3px, 0) scale(1.05); } /* Softer for mobile */
+            25% { transform: translate(-3px, 0) scale(1.05); }
             75% { transform: translate(3px, 0) scale(1.05); }
         }
         #noBtn.shake {
-            animation: shake 0.4s ease-in-out; /* Shorter duration */
-            will-change: transform; /* Optimize rendering */
-        }
-        /* Fallback confetti styles (if JS fails) */
-        .confetti-fallback {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 10;
-        }
-        .confetti-fallback::before {
-            content: '🎉💕🎊';
-            position: absolute;
-            font-size: 2em;
-            animation: fall 1s linear infinite;
-        }
-        @keyframes fall {
-            0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
-            100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+            animation: shake 0.4s ease-in-out;
         }
     </style>
 </head>
@@ -96,16 +75,10 @@
     
     <button id="yesBtn" class="button">Yes! 💕</button>
     <button id="noBtn" class="button">No</button>
-
-    <!-- Confetti Library (#3) -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
     
     <script>
         const yesBtn = document.getElementById('yesBtn');
         const noBtn = document.getElementById('noBtn');
-        let noTaps = 0; // For throttling
-        const tapThrottle = 300; // ms between dodges
-        let lastTap = 0;
 
         // Teasing Taunts (#1)
         const taunts = [
@@ -117,97 +90,35 @@
         ];
         let tauntIndex = 0;
 
-        // Function to get screen bounds (updates on resize)
+        // Inline Simple Confetti (#3) - No CDN, lightweight particles via DOM
+        function simpleConfetti() {
+            const colors = ['#ff69b4', '#ff1493', '#fff', '#ffb6c1'];
+            for (let i = 0; i < 50; i++) { // Lighter count for mobile
+                const conf = document.createElement('div');
+                conf.style.cssText = `
+                    position: fixed; left: ${Math.random() * 100}vw; top: -10px;
+                    width: 10px; height: 10px; background: ${colors[Math.floor(Math.random() * colors.length)]};
+                    border-radius: 50%; pointer-events: none; z-index: 10;
+                    animation: fall ${0.5 + Math.random()}s linear forwards;
+                `;
+                document.body.appendChild(conf);
+                // Remove after animation
+                setTimeout(() => conf.remove(), 2000);
+            }
+        }
+        // CSS for confetti animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fall {
+                to { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Get bounds (with safety for pre-render)
         function getBounds() {
+            const btnWidth = noBtn.offsetWidth || 150; // Default size estimate
+            const btnHeight = noBtn.offsetHeight || 60;
             return {
-                maxX: window.innerWidth - noBtn.offsetWidth - 20,
-                maxY: window.innerHeight - noBtn.offsetHeight - 20
-            };
-        }
-
-        // Dodge Mechanic (with #1 & #2) - Throttled for mobile
-        function dodge(e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const now = Date.now();
-            if (now - lastTap < tapThrottle) return; // Throttle rapid taps
-            lastTap = now;
-            noTaps++;
-
-            // Update taunt text (#1)
-            noBtn.innerHTML = taunts[tauntIndex % taunts.length];
-            tauntIndex = (tauntIndex + 1) % taunts.length;
-
-            // Shake animation (#2)
-            noBtn.classList.add('shake');
-            setTimeout(() => { 
-                if (noBtn) noBtn.classList.remove('shake'); 
-            }, 400);
-
-            // Random dodge position (keep on screen)
-            const { maxX, maxY } = getBounds();
-            const newX = Math.random() * maxX;
-            const newY = Math.random() * maxY;
-            
-            noBtn.style.left = newX + 'px';
-            noBtn.style.top = newY + 'px';
-            noBtn.style.transform = 'translate(-50%, -50%)';
-        }
-
-        // Unified pointer events for mobile/desktop compatibility
-        noBtn.addEventListener('pointerdown', dodge, { passive: false });
-
-        // Yes Button with Confetti (#3)
-        function triggerYes() {
-            // Check if confetti loaded; fallback to CSS
-            if (typeof confetti !== 'undefined') {
-                confetti({
-                    particleCount: 80, // Lighter for mobile perf
-                    spread: 70,
-                    origin: { y: 0.6 },
-                    colors: ['#ff69b4', '#ff1493', '#fff', '#ffb6c1'],
-                    disableForReducedMotion: true // Respects mobile settings
-                });
-                // Shorter delay on mobile
-                const delay = /Mobi|Android/i.test(navigator.userAgent) ? 500 : 1000;
-                setTimeout(() => { window.location.href = 'success.html'; }, delay);
-            } else {
-                // Fallback: Add CSS confetti overlay
-                const fallback = document.createElement('div');
-                fallback.className = 'confetti-fallback';
-                fallback.style.background = 'transparent';
-                document.body.appendChild(fallback);
-                setTimeout(() => { 
-                    if (fallback) fallback.remove();
-                    window.location.href = 'success.html'; 
-                }, 1000);
-            }
-        }
-
-        yesBtn.addEventListener('click', triggerYes);
-        yesBtn.addEventListener('pointerdown', triggerYes, { passive: false });
-
-        // Handle screen resize (e.g., mobile rotation)
-        window.addEventListener('resize', () => {
-            // Re-center Yes if needed
-            yesBtn.style.left = '50%';
-            yesBtn.style.top = '50%';
-            // Bound No button if it's off-screen
-            const { maxX, maxY } = getBounds();
-            const rect = noBtn.getBoundingClientRect();
-            if (rect.right > window.innerWidth) noBtn.style.left = (maxX / 2) + 'px';
-            if (rect.bottom > window.innerHeight) noBtn.style.top = (maxY / 2) + 'px';
-        });
-
-        // Initial bounds check
-        window.addEventListener('load', () => {
-            const { maxX, maxY } = getBounds();
-            if (noBtn.offsetLeft > maxX || noBtn.offsetTop > maxY) {
-                noBtn.style.left = (maxX * 0.7) + 'px';
-                noBtn.style.top = (maxY * 0.6) + 'px';
-            }
-        });
-    </script>
-</body>
-</html>
+                maxX: Math.max(0, window.innerWidth - btnWidth - 20),
+                maxY: Math.max(0, window.innerHeight - btnHeight
