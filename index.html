@@ -13,153 +13,131 @@
             align-items: center;
             height: 100vh;
             margin: 0;
-            background-color: #ff69b4;
+            background: linear-gradient(135deg, #ff69b4, #ff1493);
             color: #fff;
             text-align: center;
-            overflow: hidden; /* Prevents scrolling off-screen */
+            overflow: hidden; /* Prevents dodging off-screen */
         }
         h1 {
             font-size: 2.5em;
             margin-bottom: 2em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
-        .buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 1em;
-        }
-        button {
+        .button {
             padding: 15px 30px;
-            font-size: 1.2em;
+            font-size: 1.5em;
             border: none;
-            border-radius: 10px;
+            border-radius: 50px;
             cursor: pointer;
-            transition: transform 0.1s ease;
+            transition: transform 0.2s ease;
+            position: absolute;
+            user-select: none; /* Prevents text selection on mobile */
+        }
+        .button:active {
+            transform: scale(0.95);
         }
         #yesBtn {
             background-color: #ff1493;
             color: white;
-            font-weight: bold;
-        }
-        #yesBtn:hover {
-            transform: scale(1.05);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1;
         }
         #noBtn {
-            background-color: #fff;
-            color: #ff69b4;
-            font-weight: bold;
-            position: relative; /* Allows JS positioning */
-            /* No fixed position—JS handles dodging */
+            background-color: #ff69b4;
+            color: white;
+            position: absolute;
+            top: 60%;
+            left: 70%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+            transition: left 0.3s ease, top 0.3s ease;
         }
-        #noBtn:active {
-            transform: scale(0.95); /* Subtle press feel, but JS dodges first */
+        /* Shake Animation for Dodge (#2) */
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(-5px, 0) scale(1.1); }
+            75% { transform: translate(5px, 0) scale(1.1); }
         }
-        @media (max-width: 600px) {
-            h1 { font-size: 2em; margin-bottom: 1.5em; }
-            button { padding: 12px 24px; font-size: 1em; }
+        #noBtn.shake {
+            animation: shake 0.5s ease-in-out;
+        }
+        /* Ensure buttons stay in bounds */
+        #noBtn {
+            max-width: 40%;
+            min-width: 120px;
         }
     </style>
 </head>
 <body>
-    <h1>Will you be my Valentine? 💕</h1>
-    <div class="buttons">
-        <button id="yesBtn">Yes! ❤️</button>
-        <button id="noBtn">No 😔</button>
-    </div>
+    <h1>Will you be my Valentine? ❤️</h1>
+    
+    <button id="yesBtn" class="button">Yes! 💕</button>
+    <button id="noBtn" class="button">No</button>
 
+    <!-- Confetti Library (#3) -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    
     <script>
-        const noBtn = document.getElementById('noBtn');
         const yesBtn = document.getElementById('yesBtn');
-        let isDodging = false; // Prevents rapid-fire dodges
+        const noBtn = document.getElementById('noBtn');
 
-        // Function to dodge: Move to random safe position away from touch/mouse
-        function dodge(event) {
-            if (isDodging) return; // Throttle to avoid spam
-            isDodging = true;
-            setTimeout(() => { isDodging = false; }, 300); // Reset after 300ms
+        // Teasing Taunts (#1)
+        const taunts = [
+            "No? Come on, try again! 😏",
+            "I'm slippery today! 💨",
+            "Not yet... 😜",
+            "Catch me if you can! 🏃‍♂️",
+            "Aw, don't be shy! ❤️"
+        ];
+        let tauntIndex = 0;
 
-            // Get event position (touch or mouse)
-            let clientX, clientY;
-            if (event.type === 'touchstart') {
-                clientX = event.touches[0].clientX;
-                clientY = event.touches[0].clientY;
-            } else {
-                clientX = event.clientX;
-                clientY = event.clientY;
-            }
+        // Dodge Mechanic (with #1 & #2)
+        function dodge(e) {
+            e.preventDefault(); // Prevent redirect on mobile taps
+            e.stopPropagation();
 
-            // Get screen dimensions and button size
-            const screenW = window.innerWidth;
-            const screenH = window.innerHeight;
-            const btnRect = noBtn.getBoundingClientRect();
-            const btnW = btnRect.width || 120; // Fallback size
-            const btnH = btnRect.height || 50;
+            // Update taunt text (#1)
+            noBtn.innerHTML = taunts[tauntIndex % taunts.length];
+            tauntIndex++;
 
-            // Calculate safe random position: Away from touch (opposite quadrant bias)
-            let newX, newY;
-            const margin = 20; // Padding from edges
-            const awayDistance = 100; // How far to dodge
+            // Shake animation (#2)
+            noBtn.classList.add('shake');
+            setTimeout(() => { noBtn.classList.remove('shake'); }, 500);
 
-            // Bias away from touch: If touch is left, go right, etc.
-            if (clientX < screenW / 2) {
-                newX = Math.random() * (screenW - btnW - margin * 2) + margin + awayDistance;
-            } else {
-                newX = Math.random() * (screenW - btnW - margin * 2) + margin - awayDistance;
-                if (newX < margin) newX = margin; // Clamp left
-            }
-
-            if (clientY < screenH / 2) {
-                newY = Math.random() * (screenH - btnH - margin * 2) + margin + awayDistance;
-            } else {
-                newY = Math.random() * (screenH - btnH - margin * 2) + margin - awayDistance;
-                if (newY < margin) newY = margin; // Clamp top
-            }
-
-            // Ensure always on-screen
-            newX = Math.max(margin, Math.min(newX, screenW - btnW - margin));
-            newY = Math.max(margin, Math.min(newY, screenH - btnH - margin));
-
-            // Animate to new position (smooth dodge)
-            noBtn.style.transition = 'all 0.3s ease';
-            noBtn.style.position = 'fixed';
+            // Random dodge position (keep on screen)
+            const maxX = window.innerWidth - noBtn.offsetWidth - 20;
+            const maxY = window.innerHeight - noBtn.offsetHeight - 20;
+            const newX = Math.random() * maxX;
+            const newY = Math.random() * maxY;
+            
             noBtn.style.left = newX + 'px';
             noBtn.style.top = newY + 'px';
-            noBtn.style.transform = 'translate(0, 0)'; // Reset any prior scale
-
-            // Optional: Shake or scale for fun
-            noBtn.style.transform += ' scale(1.1)';
-            setTimeout(() => {
-                noBtn.style.transform = 'translate(0, 0) scale(1)';
-            }, 150);
+            noBtn.style.transform = 'translate(-50%, -50%)';
         }
 
-        // Event listeners: Touch for mobile, mouse for desktop
+        // Event listeners for No button (touch + mouse for compatibility)
+        noBtn.addEventListener('click', dodge);
         noBtn.addEventListener('touchstart', dodge, { passive: false });
         noBtn.addEventListener('mousedown', dodge);
 
-        // Prevent actual click if dodged (but allow after a beat if user persists)
-        noBtn.addEventListener('click', (e) => {
-            // Optional: If you want No to eventually work (e.g., lead to a "Are you sure?" page)
-            // For now, it just dodges endlessly—comment out if needed
-            e.preventDefault();
-            dodge(e);
-        });
-
-        // Yes button: Redirect to success
+        // Yes Button with Confetti (#3)
         yesBtn.addEventListener('click', () => {
-            window.location.href = 'success.html';
+            // Pink/red confetti burst
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#ff69b4', '#ff1493', '#fff', '#ffb6c1']
+            });
+            // Delay redirect for the show
+            setTimeout(() => { window.location.href = 'success.html'; }, 1000);
         });
 
-        // Initial position: Center if needed
-        window.addEventListener('load', () => {
-            noBtn.style.position = 'relative';
-        });
-
-        // Handle resize/orientation change on mobile
-        window.addEventListener('resize', () => {
-            // Reset to center on resize to avoid stuck positions
-            noBtn.style.position = 'relative';
-            noBtn.style.left = 'auto';
-            noBtn.style.top = 'auto';
+        // Mobile touch for Yes (in case)
+        yesBtn.addEventListener('touchstart', () => {
+            yesBtn.click(); // Trigger the same action
         });
     </script>
 </body>
