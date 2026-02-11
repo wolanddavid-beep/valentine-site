@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Will You Be My Valentine?</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #ff69b4; /* Pink background for Valentine's vibe */
+            color: #fff;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2em;
+            margin-bottom: 2em;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1.2em;
+            margin: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        #yesBtn {
+            background-color: #ff1493;
+            color: white;
+        }
+        #noBtn {
+            background-color: #ff4500;
+            color: white;
+            position: absolute; /* Makes it movable */
+            transition: all 0.1s ease-out;
+        }
+        #noBtn:hover {
+            transform: translateX(20px) translateY(20px); /* Dodges on hover */
+        }
+    </style>
+</head>
+<body>
+    <h1>Will you be my valentine?</h1>
+    <button id="yesBtn" onclick="window.location.href='success.html'">Yes</button>
+    <button id="noBtn">No</button>
+
+    <script>
+        // Make "No" button dodge the mouse
+        const noBtn = document.getElementById('noBtn');
+        let isDodging = false;
+
+        noBtn.addEventListener('mouseover', function(event) {
+            const x = event.clientX;
+            const y = event.clientY;
+            // Move button away from cursor (random dodge direction)
+            const dodgeX = (Math.random() - 0.5) * 200 + x;
+            const dodgeY = (Math.random() - 0.5) * 200 + y;
+            noBtn.style.left = dodgeX + 'px';
+            noBtn.style.top = dodgeY + 'px';
+        });
+
+        // Prevent actual clicks on No (optional: just for fun, it won't do anything)
+        noBtn.addEventListener('click', function(event) {
+            event.preventDefault();
+            alert("Oops! Try again? 😏"); // Or remove this for pure dodging
+        });
+    </script>
+</body>
+</html>
