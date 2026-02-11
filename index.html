@@ -17,11 +17,13 @@
             color: #fff;
             text-align: center;
             overflow: hidden;
+            position: relative; /* Anchor for fixed buttons */
         }
         h1 {
             font-size: 2.5em;
-            margin-bottom: 2em;
+            margin: 0 0 2em 0; /* Tighten margin to avoid push */
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            flex-shrink: 0; /* Prevent h1 from compressing */
         }
         .button {
             padding: 15px 30px;
@@ -30,12 +32,14 @@
             border-radius: 50px;
             cursor: pointer;
             transition: all 0.2s ease;
-            position: absolute;
+            position: fixed; /* Viewport-fixed for true centering, ignores flex */
             user-select: none;
             -webkit-user-select: none;
             -webkit-touch-callout: none;
-            touch-action: manipulation; /* Faster touch response */
+            touch-action: manipulation;
             box-sizing: border-box;
+            /* TEMP: Colored borders for position testing - REMOVE AFTER CONFIRM */
+            border: 3px solid #000; /* Yes: black, No: will override */
         }
         .button:active {
             transform: scale(0.95);
@@ -43,21 +47,23 @@
         #yesBtn {
             background-color: #ff1493;
             color: white;
-            top: 50% !important; /* Force center */
+            top: 50% !important;
             left: 50% !important;
-            transform: translate(-50%, -50%) !important; /* Center alignment */
+            transform: translate(-50%, -50%) !important;
             z-index: 1;
+            border-color: red !important; /* TEMP: Red border for Yes */
         }
         #noBtn {
             background-color: #ff69b4;
             color: white;
-            top: 60% !important; /* Initial offset below center */
+            top: 60% !important; /* Offset below center */
             left: 70% !important; /* Offset right */
             transform: translate(-50%, -50%) !important;
             z-index: 2;
-            transition: left 0.3s ease, top 0.3s ease;
+            transition: left 0.3s ease, top 0.3s ease !important;
             max-width: 40%;
             min-width: 120px;
+            border-color: blue !important; /* TEMP: Blue border for No */
         }
         /* Shake Animation (#2) - Uncomment lines in JS to enable */
         @keyframes shake {
@@ -68,6 +74,10 @@
         #noBtn.shake {
             animation: shake 0.4s ease-in-out;
         }
+        /* Confetti fall */
+        @keyframes fall {
+            to { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -77,8 +87,16 @@
     <button id="noBtn" class="button">No</button>
     
     <script>
+        // Quick load confirm
+        alert('Page loaded! If you see this, JS is working.'); // TEMP: Remove after test
+
         const yesBtn = document.getElementById('yesBtn');
         const noBtn = document.getElementById('noBtn');
+
+        if (!yesBtn || !noBtn) {
+            alert('Buttons not found!'); // TEMP: Debug
+            throw new Error('Buttons missing');
+        }
 
         // Teasing Taunts (#1)
         const taunts = [
@@ -90,10 +108,10 @@
         ];
         let tauntIndex = 0;
 
-        // Inline Simple Confetti (#3) - No CDN, lightweight particles via DOM
+        // Inline Simple Confetti (#3)
         function simpleConfetti() {
             const colors = ['#ff69b4', '#ff1493', '#fff', '#ffb6c1'];
-            for (let i = 0; i < 50; i++) { // Lighter count for mobile
+            for (let i = 0; i < 50; i++) {
                 const conf = document.createElement('div');
                 conf.style.cssText = `
                     position: fixed; left: ${Math.random() * 100}vw; top: -10px;
@@ -102,23 +120,11 @@
                     animation: fall ${0.5 + Math.random()}s linear forwards;
                 `;
                 document.body.appendChild(conf);
-                // Remove after animation
-                setTimeout(() => conf && conf.remove(), 2000);
+                setTimeout(() => { if (conf) conf.remove(); }, 2000);
             }
         }
-        // CSS for confetti animation (added to head if not exists)
-        if (!document.querySelector('#confetti-style')) {
-            const style = document.createElement('style');
-            style.id = 'confetti-style';
-            style.textContent = `
-                @keyframes fall {
-                    to { transform: translateY(100vh) rotate(360deg); opacity: 0; }
-                }
-            `;
-            document.head.appendChild(style);
-        }
 
-        // Get bounds (safer defaults)
+        // Get bounds
         function getBounds() {
             const btnWidth = noBtn.offsetWidth || 150;
             const btnHeight = noBtn.offsetHeight || 60;
@@ -128,33 +134,51 @@
             };
         }
 
-        // Dodge function (core functionality restored)
+        // Dodge function
         function dodge(e) {
-            if (e.type === 'touchend') {
-                e.preventDefault(); // Prevent zoom/scroll on touch
-            }
-            // Update taunt (#1)
+            if (e.type === 'touchend') e.preventDefault();
             noBtn.innerHTML = taunts[tauntIndex % taunts.length];
             tauntIndex = (tauntIndex + 1) % taunts.length;
 
-            // Optional Shake (#2) - Uncomment next 4 lines to enable
+            // Optional Shake (#2)
             // noBtn.classList.add('shake');
-            // setTimeout(() => { noBtn.classList.remove('shake'); }, 400);
+            // setTimeout(() => noBtn.classList.remove('shake'), 400);
 
-            // Dodge position (escapes randomly)
             const { maxX, maxY } = getBounds();
-            const newX = Math.random() * Math.max(1, maxX); // Avoid 0
+            const newX = Math.random() * Math.max(1, maxX);
             const newY = Math.random() * Math.max(1, maxY);
             noBtn.style.left = newX + 'px';
             noBtn.style.top = newY + 'px';
-            noBtn.style.transform = 'translate(-50%, -50%)';
         }
 
-        // Events: Attach after elements exist (ensures functionality)
-        if (noBtn && yesBtn) {
-            noBtn.addEventListener('touchend', dodge, { passive: false });
-            noBtn.addEventListener('click', dodge);
-        }
+        // Attach events
+        noBtn.addEventListener('touchend', dodge, { passive: false });
+        noBtn.addEventListener('click', dodge);
 
-        // Yes button
+        // Yes function
         function triggerYes() {
+            simpleConfetti();
+            setTimeout(() => { window.location.href = 'success.html'; }, 800);
+        }
+        yesBtn.addEventListener('touchend', triggerYes, { passive: false });
+        yesBtn.addEventListener('click', triggerYes);
+
+        // Resize: Minimal adjustment only if needed
+        window.addEventListener('resize', () => {
+            const { maxX, maxY } = getBounds();
+            let currentLeft = parseFloat(noBtn.style.left) || (window.innerWidth * 0.7);
+            let currentTop = parseFloat(noBtn.style.top) || (window.innerHeight * 0.6);
+            if (currentLeft > maxX || currentTop > maxY) {
+                noBtn.style.left = Math.min(window.innerWidth * 0.7, maxX * 0.7) + 'px';
+                noBtn.style.top = Math.min(window.innerHeight * 0.6, maxY * 0.6) + 'px';
+            }
+        });
+
+        // Post-load confirm (no position changes)
+        window.addEventListener('load', () => {
+            console.log('Fully loaded. Yes pos:', yesBtn.getBoundingClientRect()); // TEMP: Check console
+            console.log('No pos:', noBtn.getBoundingClientRect());
+        });
+    </script>
+</body>
+</html>
